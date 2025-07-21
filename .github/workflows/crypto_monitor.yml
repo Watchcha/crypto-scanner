@@ -1,0 +1,39 @@
+# ชื่อของ Workflow ที่จะแสดงในแท็บ Actions
+name: Crypto Signal Monitor
+
+on:
+  # ตั้งเวลาให้รันอัตโนมัติ (Cron Job)
+  # Syntax: นาที ชั่วโมง วัน เดือน วันในสัปดาห์ (ใช้เวลา UTC)
+  # ตัวอย่างนี้คือ: รันทุกวันที่เวลา 00:10 UTC (ตี 7 โมง 10 นาที เวลาไทย)
+  schedule:
+    - cron: '10 0 * * *'
+
+  # อนุญาตให้สามารถกดรัน Workflow นี้ได้เองจากหน้าเว็บ GitHub (สำหรับทดสอบ)
+  workflow_dispatch:
+
+jobs:
+  # ชื่องาน (Job)
+  run-monitor:
+    # เลือก OS ที่จะใช้รัน (ubuntu-latest เป็นตัวเลือกมาตรฐานและดีที่สุด)
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: ดึงโค้ดล่าสุดจาก Repository ของคุณมาไว้ใน Runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: ตั้งค่า Python เวอร์ชั่น 3.10 (หรือเวอร์ชั่นอื่นที่ต้องการ)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Step 3: ติดตั้ง Dependencies จากไฟล์ requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: รันสคริปต์ Python ของคุณ
+      - name: Run CDC Action Zone Monitor
+        run: python scan_signal.py
