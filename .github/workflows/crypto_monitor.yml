@@ -40,6 +40,7 @@ jobs:
         # เพิ่ม env block นี้เพื่อส่งค่า secrets ไปให้ python script
         # สคริปต์จะสามารถใช้ os.getenv() เพื่ออ่านค่าเหล่านี้ได้
         env:
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python scan_signal.py # <-- ตรวจสอบให้แน่ใจว่าชื่อไฟล์ถูกต้อง
