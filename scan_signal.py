@@ -14,7 +14,8 @@ SYMBOLS = [
 
 INTERVAL = "1d"
 LIMIT = 100
-API_URL = "https://api1.binance.com/api/v3/klines"
+# เปลี่ยนกลับมาใช้ API Endpoint หลัก เพราะเราจะใช้ Proxy ในการเข้าถึง
+API_URL = "https://api.binance.com/api/v3/klines"
 
 # CDC Action Zone V2 Parameters
 PRD_1 = 12
@@ -23,6 +24,11 @@ PRD_2 = 26
 # --- Telegram Configuration ---
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+
+# --- Proxy Configuration (ใหม่) ---
+# อ่านค่า Proxy URL จาก Environment Variable ที่จะตั้งค่าใน GitHub Secrets
+HTTP_PROXY = os.getenv('HTTP_PROXY')
+
 
 def send_telegram_message(message):
     """ส่งข้อความไปยัง Telegram และจัดการข้อความยาว"""
@@ -53,13 +59,27 @@ def send_telegram_message(message):
             print(f"An error occurred while sending Telegram message: {e}")
         time.sleep(1)
 
+# --- ฟังก์ชันที่แก้ไข (สำคัญ) ---
 def get_klines_data(symbol, interval, limit):
-    """ดึงข้อมูลแท่งเทียนจาก Binance API สำหรับเหรียญที่ระบุ"""
+    """ดึงข้อมูลแท่งเทียนจาก Binance API สำหรับเหรียญที่ระบุ โดยใช้ Proxy ถ้ามี"""
     params = {'symbol': symbol, 'interval': interval, 'limit': limit}
+    
+    # สร้าง dictionary สำหรับ proxy ถ้ามีการตั้งค่า HTTP_PROXY ไว้
+    proxies = {
+        "http": HTTP_PROXY,
+        "https": HTTP_PROXY,
+    } if HTTP_PROXY else None
+
     try:
-        response = requests.get(API_URL, params=params)
+        if proxies:
+            print(f"Fetching data for {symbol} via proxy...")
+        # ส่งค่า proxies เข้าไปใน requests.get() และเพิ่ม timeout
+        response = requests.get(API_URL, params=params, proxies=proxies, timeout=15)
         response.raise_for_status()
         return response.json()
+    except requests.exceptions.ProxyError as e:
+        print(f"Proxy Error while fetching data for {symbol}: {e}")
+        return None
     except requests.exceptions.RequestException as e:
         print(f"Error fetching data for {symbol} from Binance API: {e}")
         return None
@@ -105,6 +125,11 @@ if __name__ == "__main__":
     print(f"====== Starting Crypto Signal Monitor on {time.strftime('%Y-%m-%d %H:%M:%S')} ======")
     print(f"Monitoring {len(SYMBOLS)} symbols: {', '.join(SYMBOLS)}\n")
     
+    if HTTP_PROXY:
+        print("Proxy is configured and will be used for API requests.")
+    else:
+        print("No proxy configured. Running directly.")
+        
     all_results = []
     
     for symbol in SYMBOLS:
@@ -121,28 +146,21 @@ if __name__ == "__main__":
     else:
         results_df = pd.DataFrame(all_results)
         
-        # --- ส่วนที่อัปเดต: การสร้าง Report ---
-        
-        # 1. แยก DataFrame สำหรับเหรียญที่มีสัญญาณออกมา
         signals_df = results_df[results_df['Signal'].isin(['Buy', 'Sell'])].copy()
         
-        # 2. สร้างข้อความส่วนหัว
         header = f"📈 *Crypto Signal Summary ({INTERVAL})*\n"
         header += f"Checked at: {time.strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n"
         
         final_message = header
         
-        # 3. ถ้ามีสัญญาณ, สร้างตารางสำหรับสัญญาณโดยเฉพาะและเพิ่มไปที่ข้อความหลัก
         if not signals_df.empty:
             signals_df['Close'] = signals_df['Close'].apply(lambda x: f"{x:,.4f}")
             signal_table = signals_df.to_string(index=False)
-            
             final_message += "‼️ *Actionable Signals Detected* ‼️\n"
             final_message += f"```\n{signal_table}\n```\n\n"
         else:
             final_message += "✅ *No new signals detected.*\n\n"
             
-        # 4. สร้างตารางสรุปสถานะของทุกเหรียญ
         summary_df = results_df.copy()
         summary_df['Close'] = summary_df['Close'].apply(lambda x: f"{x:,.4f}")
         summary_table = summary_df.to_string(index=False)
@@ -150,7 +168,6 @@ if __name__ == "__main__":
         final_message += "--- *Full Market Overview* ---\n"
         final_message += f"```\n{summary_table}\n```"
 
-        # 5. Print และส่ง Report ที่ปรับปรุงแล้ว
         print("\n" + "="*10 + " FINAL SUMMARY " + "="*10)
         print(final_message)
         print("="*35 + "\n")
