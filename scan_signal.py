@@ -14,7 +14,7 @@ SYMBOLS = [
 
 INTERVAL = "1d"
 LIMIT = 100
-API_URL = "https://api.binance.com/api/v3/klines"
+API_URL = "https://api1.binance.com/api/v3/klines"
 
 # CDC Action Zone V2 Parameters
 PRD_1 = 12
